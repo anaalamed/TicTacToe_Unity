@@ -1,43 +1,43 @@
 ﻿using System;
 using MoonActive.Scripts;
+using UnityEngine;
 
 public class InMemoryGameSaver : GameSaver
 {
-    private PlayerType?[,] board;
-    private PlayerType player;
+    private GameState savedGameState;
 
 
     GameState GameSaver.LoadGame()
     {
-        if (board == null)
+        if (savedGameState == null)
         {
-            // TODO:throw
-            return new GameState{
-            Board = null,
-            CurrentPlayer = player}; 
+            Debug.LogWarning("The game state was never saved");
+            throw new InvalidOperationException(); 
         }
 
-        return new GameState{
-            Board = board,
-            CurrentPlayer = player
-        };
+        return this.savedGameState;
     }
 
     void GameSaver.SaveGame(GameState gameState)
     {
-        if (this.board == null)
+        // Iniatilize state for the first time
+        if (this.savedGameState == null)
         {
-            this.board = new PlayerType?[gameState.Board.GetLength(0), gameState.Board.GetLength(1)];
+            this.savedGameState = new GameState
+            {
+                Board = new PlayerType?[gameState.Board.GetLength(0), gameState.Board.GetLength(1)],
+                CurrentPlayer = gameState.CurrentPlayer
+            };
         }
 
-        this.player = gameState.CurrentPlayer;
-        for (int i = 0; i < board.GetLength(0); i++)
+        // TODO consider both assignment 
+        this.savedGameState.CurrentPlayer = gameState.CurrentPlayer;
+        for (int i = 0; i < gameState.Board.GetLength(0); i++)
         {
-            for (int j = 0; j < board.GetLength(1); j++)
+            for (int j = 0; j < gameState.Board.GetLength(1); j++)
             {
-                this.board[i, j] = gameState.Board[i, j];
+                this.savedGameState.Board[i, j] = gameState.Board[i, j];
             }
         }
     }
 }
-

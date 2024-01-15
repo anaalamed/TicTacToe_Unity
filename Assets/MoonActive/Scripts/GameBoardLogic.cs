@@ -9,6 +9,7 @@ public class GameBoardLogic
     private readonly UserActionEvents userActionEvents;
     private PlayerType currentPlayer;
     private PlayerType?[,] board;
+    private bool isGaveOver = false;
 
     private readonly Dictionary<GameStateSource, GameSaver> gameSavers = new Dictionary<GameStateSource, GameSaver>
     {
@@ -20,9 +21,6 @@ public class GameBoardLogic
 
     public GameBoardLogic(GameView gameView, UserActionEvents userActionEvents)
     {
-        /*
-         * Constructor
-         */
         this.gameView = gameView;
         this.userActionEvents = userActionEvents;
 
@@ -32,58 +30,61 @@ public class GameBoardLogic
 
     public void Initialize(int columns, int rows)
     {
-        /*
-         * Initialization logic will be called once per session
-         */
-
-        Debug.Log("GameBoardLogic - Initialize");
-        userActionEvents.StartGameClicked += StartGame;
+        Debug.Log("Initialize");
         board = new PlayerType?[columns,rows];
 
-        userActionEvents.TileClicked += TileClick;
-
+        userActionEvents.StartGameClicked += StartGame;
+        userActionEvents.TileClicked += ClickTile;
         userActionEvents.SaveStateClicked += SaveState;
         userActionEvents.LoadStateClicked += LoadState;
     }
     
     public void DeInitialize()
     {
-        /*
-         * DeInitialization logic will be called once per session, at disposal
-         */
-        Debug.Log("GameBoardLogic - DeInitialize");
+        Debug.Log("DeInitialize");
+        userActionEvents.StartGameClicked += StartGame;
+        userActionEvents.TileClicked += ClickTile;
+        userActionEvents.SaveStateClicked += SaveState;
+        userActionEvents.LoadStateClicked += LoadState;
     }
 
     private void StartGame()
     {
         gameView.StartGame(currentPlayer);
         board = new PlayerType?[board.GetLength(0), board.GetLength(1)];
+        isGaveOver = false;
     }
 
-    private void TileClick(BoardTilePosition boardTilePosition)
+    private void ClickTile(BoardTilePosition boardTilePosition)
     {
-        if (board[boardTilePosition.Row, boardTilePosition.Column] != null)
+        // If game is over or the tile is not available - do nothing 
+        if (isGaveOver || board[boardTilePosition.Row, boardTilePosition.Column] != null)
         {
             return;
         }
-        board[boardTilePosition.Row, boardTilePosition.Column] = currentPlayer;
 
         gameView.SetTileSign(currentPlayer, boardTilePosition);
+        board[boardTilePosition.Row, boardTilePosition.Column] = currentPlayer;
+
 
         if (CheckIsGameWon())
         {
             gameView.GameWon(currentPlayer);
-            return; 
+            isGaveOver = true;
         }
 
         if (CheckIsGameTie())
         {
             gameView.GameTie();
+            isGaveOver = true;
         }
 
-        // set next player 
-        currentPlayer = currentPlayer == PlayerType.PlayerX ? PlayerType.PlayerO : PlayerType.PlayerX;
-        gameView.ChangeTurn(currentPlayer);
+        // Set next player
+        if (!isGaveOver)
+        {
+            currentPlayer = currentPlayer == PlayerType.PlayerX ? PlayerType.PlayerO : PlayerType.PlayerX;
+            gameView.ChangeTurn(currentPlayer);
+        }
 
     }
 
@@ -98,6 +99,7 @@ public class GameBoardLogic
     private void LoadState(GameStateSource gameStateSource)
     {
         GameState gameState = gameSavers[gameStateSource].LoadGame();
+
         if (gameState.Board == null)
         {
             return;
@@ -106,15 +108,16 @@ public class GameBoardLogic
         currentPlayer = gameState.CurrentPlayer;
         gameView.StartGame(currentPlayer);
 
+        // Set the board from the loaded state 
         for (int i = 0; i < board.GetLength(0); i++)
         {
             for (int j = 0; j < board.GetLength(1); j++)
             {
-                PlayerType? curr = gameState.Board[i, j];
-                board[i, j] = curr;
-                if (curr != null)
+                PlayerType? currentSign = gameState.Board[i, j];
+                board[i, j] = currentSign;
+                if (currentSign != null)
                 {
-                    gameView.SetTileSign((PlayerType)curr, new BoardTilePosition(i, j));
+                    gameView.SetTileSign((PlayerType)currentSign, new BoardTilePosition(i, j));
                 }
             }
         }
