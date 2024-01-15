@@ -63,3 +63,5 @@ Thumbs.db.meta
 *.vscode
 
 *.vsconfig
+
+gameState.json
