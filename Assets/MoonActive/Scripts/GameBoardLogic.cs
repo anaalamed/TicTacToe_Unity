@@ -13,10 +13,8 @@ public class GameBoardLogic
     private readonly Dictionary<GameStateSource, GameSaver> gameSavers = new Dictionary<GameStateSource, GameSaver>
     {
         { GameStateSource.InMemory, new InMemoryGameSaver()},
-        {GameStateSource.PlayerPrefs, new JSONGameSaver() }
+        { GameStateSource.PlayerPrefs, new JSONGameSaver() }
     };
-
-    private readonly GameSaver inMemoryGameSaver = new InMemoryGameSaver();
 
 
 
@@ -53,6 +51,7 @@ public class GameBoardLogic
         /*
          * DeInitialization logic will be called once per session, at disposal
          */
+        Debug.Log("GameBoardLogic - DeInitialize");
     }
 
     private void StartGame()
@@ -63,8 +62,6 @@ public class GameBoardLogic
 
     private void TileClick(BoardTilePosition boardTilePosition)
     {
-        Debug.Log("GameBoardLogic - TileClick");
-
         if (board[boardTilePosition.Row, boardTilePosition.Column] != null)
         {
             return;
@@ -76,6 +73,7 @@ public class GameBoardLogic
         if (CheckIsGameWon())
         {
             gameView.GameWon(currentPlayer);
+            return; 
         }
 
         if (CheckIsGameTie())
@@ -91,24 +89,28 @@ public class GameBoardLogic
 
     private void SaveState(GameStateSource gameStateSource)
     {
-        gameSavers[gameStateSource].SaveGame(board, currentPlayer);
+        gameSavers[gameStateSource].SaveGame(new GameState {
+            Board = board,
+            CurrentPlayer = currentPlayer
+        });
     }
 
     private void LoadState(GameStateSource gameStateSource)
     {
-        (var savedBoard, var savedPlayer) = gameSavers[gameStateSource].LoadGame();
-        if (savedBoard == null)
+        GameState gameState = gameSavers[gameStateSource].LoadGame();
+        if (gameState.Board == null)
         {
             return;
         }
-        currentPlayer = (PlayerType)savedPlayer;
+
+        currentPlayer = gameState.CurrentPlayer;
         gameView.StartGame(currentPlayer);
 
         for (int i = 0; i < board.GetLength(0); i++)
         {
             for (int j = 0; j < board.GetLength(1); j++)
             {
-                PlayerType? curr = savedBoard[i, j];
+                PlayerType? curr = gameState.Board[i, j];
                 board[i, j] = curr;
                 if (curr != null)
                 {

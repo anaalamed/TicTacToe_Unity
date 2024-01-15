@@ -1,11 +1,7 @@
-﻿using System;
-using MoonActive.Scripts;
-
-public interface GameSaver
+﻿public interface GameSaver
 {
+    void SaveGame(GameState gameState);
 
-    void SaveGame(PlayerType?[,] board, PlayerType currentPlayer);
-
-    (PlayerType?[,], PlayerType?) LoadGame();
+    GameState LoadGame();
 }
 

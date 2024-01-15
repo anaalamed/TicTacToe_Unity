@@ -7,29 +7,35 @@ public class InMemoryGameSaver : GameSaver
     private PlayerType player;
 
 
-    (PlayerType?[,], PlayerType?) GameSaver.LoadGame()
+    GameState GameSaver.LoadGame()
     {
         if (board == null)
         {
             // TODO:throw
-            return (null,null);
+            return new GameState{
+            Board = null,
+            CurrentPlayer = player}; 
         }
-        return (board, player);
+
+        return new GameState{
+            Board = board,
+            CurrentPlayer = player
+        };
     }
 
-    void GameSaver.SaveGame(PlayerType?[,] board, PlayerType currentPlayer)
+    void GameSaver.SaveGame(GameState gameState)
     {
         if (this.board == null)
         {
-            this.board = new PlayerType?[board.GetLength(0), board.GetLength(1)];
+            this.board = new PlayerType?[gameState.Board.GetLength(0), gameState.Board.GetLength(1)];
         }
-        player = currentPlayer;
 
+        this.player = gameState.CurrentPlayer;
         for (int i = 0; i < board.GetLength(0); i++)
         {
             for (int j = 0; j < board.GetLength(1); j++)
             {
-                this.board[i, j] = board[i, j];
+                this.board[i, j] = gameState.Board[i, j];
             }
         }
     }
