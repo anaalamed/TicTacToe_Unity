@@ -8,57 +8,64 @@ public class GameBoardLogic
     private readonly GameView gameView;
     private readonly UserActionEvents userActionEvents;
     private PlayerType currentPlayer;
-    private PlayerType?[,] board;
-    private bool isGaveOver = false;
 
-    private readonly Dictionary<GameStateSource, GameSaver> gameSavers = new Dictionary<GameStateSource, GameSaver>
+    // Store the local version of board
+    private PlayerType?[,] board;
+    private bool isGaveActive = false;
+
+    // Mapping to use the relevant class of GameSaver according to GameStateSource
+    private readonly Dictionary<GameStateSource, GameSaver> gameSavers = new()
     {
         { GameStateSource.InMemory, new InMemoryGameSaver()},
         { GameStateSource.PlayerPrefs, new JSONGameSaver() }
     };
 
-
-
     public GameBoardLogic(GameView gameView, UserActionEvents userActionEvents)
     {
         this.gameView = gameView;
         this.userActionEvents = userActionEvents;
-
-        // TODO: make random 
         this.currentPlayer = PlayerType.PlayerX;
     }
 
     public void Initialize(int columns, int rows)
     {
         Debug.Log("Initialize");
-        board = new PlayerType?[columns,rows];
+        board = new PlayerType?[columns, rows];
 
         userActionEvents.StartGameClicked += StartGame;
         userActionEvents.TileClicked += ClickTile;
         userActionEvents.SaveStateClicked += SaveState;
         userActionEvents.LoadStateClicked += LoadState;
     }
-    
+
     public void DeInitialize()
     {
         Debug.Log("DeInitialize");
-        userActionEvents.StartGameClicked += StartGame;
-        userActionEvents.TileClicked += ClickTile;
-        userActionEvents.SaveStateClicked += SaveState;
-        userActionEvents.LoadStateClicked += LoadState;
+        userActionEvents.StartGameClicked -= StartGame;
+        userActionEvents.TileClicked -= ClickTile;
+        userActionEvents.SaveStateClicked -= SaveState;
+        userActionEvents.LoadStateClicked -= LoadState;
     }
 
+    /// <summary>
+    /// Iniatilize the new game. Resets all relevant fields. 
+    /// </summary>
     private void StartGame()
     {
         gameView.StartGame(currentPlayer);
         board = new PlayerType?[board.GetLength(0), board.GetLength(1)];
-        isGaveOver = false;
+        isGaveActive = true;
     }
 
+    /// <summary>
+    /// Sets a tile sign of current player, checks if game is over and changes
+    /// the turn to the next player if not.
+    /// </summary>
+    /// <param name="boardTilePosition"></param>
     private void ClickTile(BoardTilePosition boardTilePosition)
     {
-        // If game is over or the tile is not available - do nothing 
-        if (isGaveOver || board[boardTilePosition.Row, boardTilePosition.Column] != null)
+        // If game started and is not over or the tile has already been set  
+        if (!isGaveActive || board[boardTilePosition.Row, boardTilePosition.Column] != null)
         {
             return;
         }
@@ -70,17 +77,16 @@ public class GameBoardLogic
         if (CheckIsGameWon())
         {
             gameView.GameWon(currentPlayer);
-            isGaveOver = true;
+            isGaveActive = false;
         }
-
-        if (CheckIsGameTie())
+        else if (CheckIsGameTie())
         {
             gameView.GameTie();
-            isGaveOver = true;
+            isGaveActive = false;
         }
 
-        // Set next player
-        if (!isGaveOver)
+        // Set the turn to the next player
+        if (isGaveActive)
         {
             currentPlayer = currentPlayer == PlayerType.PlayerX ? PlayerType.PlayerO : PlayerType.PlayerX;
             gameView.ChangeTurn(currentPlayer);
@@ -90,7 +96,8 @@ public class GameBoardLogic
 
     private void SaveState(GameStateSource gameStateSource)
     {
-        gameSavers[gameStateSource].SaveGame(new GameState {
+        gameSavers[gameStateSource].SaveGame(new GameState
+        {
             Board = board,
             CurrentPlayer = currentPlayer
         });
@@ -98,31 +105,38 @@ public class GameBoardLogic
 
     private void LoadState(GameStateSource gameStateSource)
     {
-        GameState gameState = gameSavers[gameStateSource].LoadGame();
-
-        if (gameState.Board == null)
+        try
         {
-            return;
-        }
+            GameState gameState = gameSavers[gameStateSource].LoadGame();
 
-        currentPlayer = gameState.CurrentPlayer;
-        gameView.StartGame(currentPlayer);
+            currentPlayer = gameState.CurrentPlayer;
+            gameView.StartGame(currentPlayer);
 
-        // Set the board from the loaded state 
-        for (int i = 0; i < board.GetLength(0); i++)
-        {
-            for (int j = 0; j < board.GetLength(1); j++)
+            // Set the board from the loaded state 
+            for (int i = 0; i < board.GetLength(0); i++)
             {
-                PlayerType? currentSign = gameState.Board[i, j];
-                board[i, j] = currentSign;
-                if (currentSign != null)
+                for (int j = 0; j < board.GetLength(1); j++)
                 {
-                    gameView.SetTileSign((PlayerType)currentSign, new BoardTilePosition(i, j));
+                    PlayerType? currentSign = gameState.Board[i, j];
+                    board[i, j] = currentSign;
+                    if (currentSign != null)
+                    {
+                        gameView.SetTileSign((PlayerType)currentSign, new BoardTilePosition(i, j));
+                    }
                 }
             }
         }
+        catch (InvalidOperationException e)
+        {
+            Debug.LogException(e);
+            return;
+        }
     }
 
+    /// <summary>
+    /// Checks if in one of rows, columns or the diagonals all the signs are the same.  
+    /// </summary>
+    /// <returns></returns>
     private Boolean CheckIsGameWon()
     {
         // Go over rows
@@ -143,14 +157,18 @@ public class GameBoardLogic
             }
         }
 
+        // Verify thr number of rows and columns is equal
         return board.GetLength(0) == board.GetLength(1) && IsWinDiagonal();
     }
 
+    /// <summary>
+    /// Checks if there is still available tile on the board. 
+    /// </summary>
     private Boolean CheckIsGameTie()
     {
         for (int i = 0; i < board.GetLength(0); i++)
         {
-            for (int j=0; j< board.GetLength(1); j++)
+            for (int j = 0; j < board.GetLength(1); j++)
             {
                 if (board[i, j] == null)
                 {
@@ -177,6 +195,14 @@ public class GameBoardLogic
         return IsWin(0, 0, 1, 1) || IsWin(0, board.GetLength(0) - 1, 1, -1);
     }
 
+    /// <summary>
+    /// Common function to check win. Used to check rows, columns an the diagonals.
+    /// </summary>
+    /// <param name="iStart">An index to row start</param>
+    /// <param name="jStart">An index to column start</param>
+    /// <param name="iAdvance">A step to row advance</param>
+    /// <param name="jAdvance">A step to column advance</param>
+    /// <returns></returns>
     private Boolean IsWin(int iStart, int jStart, int iAdvance, int jAdvance)
     {
         PlayerType? player = board[iStart, jStart];
@@ -184,11 +210,12 @@ public class GameBoardLogic
         {
             return false;
         }
+
         int i = iStart + iAdvance;
         int j = jStart + jAdvance;
-        for (; i < board.GetLength(0) && j < board.GetLength(1); i += iAdvance, j += jAdvance )
+        for (; i < board.GetLength(0) && j < board.GetLength(1); i += iAdvance, j += jAdvance)
         {
-            if (board[i,j] != player)
+            if (board[i, j] != player)
             {
                 return false;
             }

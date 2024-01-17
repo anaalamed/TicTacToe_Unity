@@ -3,6 +3,9 @@ using System.IO;
 using Unity.Plastic.Newtonsoft.Json;
 using UnityEngine;
 
+/// <summary>
+/// Class handling storing game state with JSON. (Used on PlayerPrefs choice).
+/// </summary>
 public class JSONGameSaver : GameSaver
 {
     private readonly string fileName = "gameState.json";
@@ -16,10 +19,9 @@ public class JSONGameSaver : GameSaver
             GameState gameState = JsonConvert.DeserializeObject<GameState>(json);
             return gameState;
         }
-        catch (FileNotFoundException)
+        catch (FileNotFoundException e)
         {
-            Debug.LogWarning("The game state was never saved");
-            throw new InvalidOperationException();
+            throw new InvalidOperationException("The game state wasn't saved", e);
         }
     }
 
